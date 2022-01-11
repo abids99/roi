@@ -18,6 +18,7 @@ contract Roi is ERC20, Ownable{
     uint256 liquifyLimit = 1000000000000000000;
 
     mapping(uint256 => address) public user;
+    mapping(address => uint256) internal userInterest;
     mapping(address => uint256) internal depositAmount;
 	mapping(address => uint256) public balance;
     mapping(address => uint256) internal timeOfTransfer;
@@ -162,17 +163,19 @@ contract Roi is ERC20, Ownable{
 
         for(uint256 i = 1; i <= _day; i++){
             uint256 ratePercent = 171;
-            
+
             amount = interestTestAmount.mul(ratePercent).div(10000);
-            interestTestAmount = interestTestAmount.add(amount);
+            interestTestAmount = interestTestAmount.sub(depositAmount[msg.sender]);
         }
-        interestTestAmount = interestTestAmount.sub(depositAmount[msg.sender]);
+
         return interestTestAmount;
     }
 
     function _interest (uint256 _id) internal {
         uint256 amount = interest(_id);
-
+        
+        userInterest[user[_id]] = userInterest[user[_id]].add(amount);
+        
         balance[user[_id]] = balance[user[_id]].add(amount);
 
         emit Interest(_id, user[_id], day(_id), amount);
@@ -184,21 +187,29 @@ contract Roi is ERC20, Ownable{
         
         if (day(_id) > 0) {
             _interest(_id);
+
+            mint(_id, _amount); 
         }
 
-        uint256 mintable = balance[user[_id]].sub(depositAmount[user[_id]]);
-
-        timeOfTransfer[user[_id]] = block.timestamp;
-
-        balance[user[_id]] = balance[user[_id]].sub(_amount.add(mintable));
-
-        _mint(user[_id], mintable);
+        timeOfTransfer[user[_id]] = block.timestamp; 
         
         depositAmount[user[_id]] = depositAmount[user[_id]].sub(_amount);
 
         payable(user[_id]).transfer(_amount);
 
         emit Withdraw(_id, user[_id], _amount, balance[user[_id]]);
+    }
+
+    function mint (uint256 _id, uint256 _amount) public {
+        require(userInterest[user[_id]] > 0);
+        
+        uint256 mintable = userInterest[user[_id]];
+
+        _mint(user[_id], mintable);
+
+        userInterest[user[_id]] = userInterest[user[_id]].sub(mintable);
+        
+        balance[user[_id]] = balance[user[_id]].sub(_amount.add(mintable));
     }
 
     function rewards (address usr) view public returns (uint256) {
