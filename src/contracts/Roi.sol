@@ -16,6 +16,7 @@ contract Roi is ERC20, Ownable{
     uint256 did;
     uint256 userCount;
     uint256 liquifyLimit = 1000000000000000000;
+    uint256 [] arrey;
 
     mapping(uint256 => address) public user;
     mapping(address => uint256) internal userInterest;
@@ -24,13 +25,13 @@ contract Roi is ERC20, Ownable{
     mapping(address => uint256) internal timeOfTransfer;
     mapping(uint256 => uint256) internal didm;
     
-    event Register(uint256 id, address addrss);
+    event Register(uint256 id, address user);
     event Deregister(uint256 id, address addrss);    
-    event Deposit(uint256 id, address depositor, uint256 amount, uint256 balance);
-    event Withdraw(uint256 id, address withdrawer, uint256 amount, uint256 balance);
-    event Interest(uint256 id, address addrss, uint256 day, uint256 amount);
+    event Deposit(uint256 id, address user, uint256 amount, uint256 balance);
+    event Withdraw(uint256 id, address user, uint256 amount, uint256 balance);
+    event Interest(uint256 id, address user, uint256 day, uint256 amount);
     event Liquify(uint256 numberOfUsers, uint256 amount);
-    event LiquifyWithAddress(uint256 numberOfUsers, address usr, uint256 amount);
+    event LiquifyWithAddress(uint256 numberOfUsers, address user, uint256 amount);
 
     constructor () ERC20("Interest Reward Token", "IRT") Ownable() {
         id = 0;
@@ -57,8 +58,6 @@ contract Roi is ERC20, Ownable{
         }
 
         require(msg.value == 16900000000000000 wei, 'Error, registration fee is 16900000000000000 WEI');
-        
-        uint256 _id = id;
 
         fee = fee.add(msg.value);
 
@@ -70,7 +69,7 @@ contract Roi is ERC20, Ownable{
 
         didm[li] = 0;
 
-        emit Register(_id, user[_id]);
+        emit Register(id, user[id]);
 
     }
 
@@ -100,10 +99,6 @@ contract Roi is ERC20, Ownable{
         emit Deregister(_id, deUser);
     }
 
-    function userCountShow () view public returns (uint256) {
-        return userCount;
-    }
-
     function liquidityAmount () view internal returns (uint256) {
         uint256 a = fee;
         uint256 b = 67;
@@ -117,12 +112,16 @@ contract Roi is ERC20, Ownable{
     function liquify () internal {
         if (fee >= liquifyLimit) {
             uint256 lAmount = liquidityAmount();
+
             for (uint256 i = 1; i <= userCount; i++ ) {
+                
                 payable(user[i]).transfer(lAmount);
 
                 fee = fee.sub(liquidityAmount());
+                
                 emit LiquifyWithAddress(i, user[i], lAmount);
             }
+            
             emit Liquify(userCount, lAmount.mul(userCount));
         }
     }
@@ -136,7 +135,6 @@ contract Roi is ERC20, Ownable{
             balance[user[_id]] = balance[user[_id]].add(msg.value);
             depositAmount[user[_id]] = depositAmount[user[_id]].add(msg.value);
             timeOfTransfer[user[_id]] = block.timestamp;
-
         } else {
             balance[user[_id]] = balance[user[_id]].add(msg.value);
             depositAmount[user[_id]] = depositAmount[user[_id]].add(msg.value);
@@ -150,25 +148,43 @@ contract Roi is ERC20, Ownable{
     }
 
     function day (uint256 _id) view public returns (uint256) {
-        uint256 currentTime = block.timestamp;
-        uint256 timeGap = currentTime.sub(timeOfTransfer[user[_id]]);
-        uint256 result = timeGap.div(10); // 86400 seconds in 1 day
+        uint256 result;
+
+        if(balance[user[_id]] > 0){
+            uint256 currentTime = block.timestamp;
+        
+            uint256 timeGap = currentTime.sub(timeOfTransfer[user[_id]]);
+
+            result = timeGap.div(86400); // 86400 seconds in 1 day                 
+        } else {
+            result = 0;
+        }
+
         return result;
     }
 
     function interest (uint256 _id) view public returns (uint256) {
-        uint256 amount;
-        uint256 _day = day(_id);
-        uint256 interestTestAmount = balance[user[_id]];
+        uint256 interestRateAmount;
+        
+        if (balance[user[_id]] > 0) {
+            uint256 amount;
+            uint256 _day = day(_id);
 
-        for(uint256 i = 1; i <= _day; i++){
+            for(uint256 i = 1; i <= _day; i++){
             uint256 ratePercent = 171;
 
-            amount = interestTestAmount.mul(ratePercent).div(10000);
-            interestTestAmount = interestTestAmount.sub(depositAmount[msg.sender]);
+            amount = balance[user[_id]].mul(ratePercent).div(10000);
+            
+            interestRateAmount = interestRateAmount.add(amount);
+            }
+
+            interestRateAmount = interestRateAmount.sub(depositAmount[user[_id]]);
+        
+        } else {
+            interestRateAmount = 0;
         }
 
-        return interestTestAmount;
+        return interestRateAmount;
     }
 
     function _interest (uint256 _id) internal {
@@ -181,7 +197,7 @@ contract Roi is ERC20, Ownable{
         emit Interest(_id, user[_id], day(_id), amount);
     }
 
-    function withdraw(uint256 _id, uint256 _amount) payable public {
+    function withdraw(uint256 _id, uint256 _amount) public {
         require(_amount <= balance[user[_id]]);
         require(msg.sender == user[_id], 'Error, You are NOT registerer');
         
@@ -200,7 +216,7 @@ contract Roi is ERC20, Ownable{
         emit Withdraw(_id, user[_id], _amount, balance[user[_id]]);
     }
 
-    function mint (uint256 _id, uint256 _amount) public {
+    function mint (uint256 _id, uint256 _amount) internal {
         require(userInterest[user[_id]] > 0);
         
         uint256 mintable = userInterest[user[_id]];

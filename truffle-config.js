@@ -6,7 +6,7 @@ const privateKeys = process.env.PRIVATE_KEYS || ""
 const privateKeysMatic = process.env.PRIVATE_KEYS_MATIC || ""
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim();
-const BSCSCANAPIKEY = 'GHYUP1C31GVQK6PFZ1WRHPGUW6IH2V182G'
+const BSCSCANAPIKEY = process.env.BSCSCANAPI;
 module.exports = {
   
   plugins: [
