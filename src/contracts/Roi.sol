@@ -11,12 +11,12 @@ contract Roi is ERC20, Ownable{
     
     address constant zero = address(0);
     
+    
     uint256 fee;
     uint256 id;
     uint256 did;
     uint256 userCount;
     uint256 liquifyLimit = 1000000000000000000;
-    uint256 [] arrey;
 
     mapping(uint256 => address) public user;
     mapping(address => uint256) internal userInterest;
@@ -129,7 +129,9 @@ contract Roi is ERC20, Ownable{
     function deposit (uint256 _id) payable public {
         require(msg.sender == user[_id], 'Error, You are NOT registerer');
         require(msg.value > 0);
+
         msg.value;
+        
         if(timeOfTransfer[user[_id]] > 0) {
             _interest(_id);
             balance[user[_id]] = balance[user[_id]].add(msg.value);
@@ -142,10 +144,6 @@ contract Roi is ERC20, Ownable{
         }
         emit Deposit(_id, user[_id], msg.value, balance[user[_id]]);
 	}
-
-    function contBal () view public returns (uint256) {
-        return address(this).balance;
-    }
 
     function day (uint256 _id) view public returns (uint256) {
         uint256 result;
@@ -197,9 +195,9 @@ contract Roi is ERC20, Ownable{
         emit Interest(_id, user[_id], day(_id), amount);
     }
 
-    function withdraw(uint256 _id, uint256 _amount) public {
+    function withdraw (uint256 _id, uint256 _amount) public {
         require(_amount <= balance[user[_id]]);
-        require(msg.sender == user[_id], 'Error, You are NOT registerer');
+        require(msg.sender == user[_id], 'Error, You are NOT the person');
         
         if (day(_id) > 0) {
             _interest(_id);
